@@ -1,0 +1,189 @@
+---
+title: "UNICEF Data Story: Global Healthcare & Socioeconomic Trends"
+author: "Tanmay"
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+    toc: true
+    toc-title: "Contents"
+    toc-location: left
+    number-sections: true
+    theme: flatly
+output-dir: docs
+---
+
+# Global Healthcare & Socioeconomic Trends
+
+*While economic growth has surged globally over the past six decades, access to healthcare remains uneven. This report uncovers the complex relationship between wealth (GDP), health priorities, and defense spending.*
+
+This analysis highlights a world divided:
+- ✅ **Nations with high GDP and strategic healthcare coverage (e.g., Mongolia).**
+- ❌ **Countries prioritizing military spending over healthcare (e.g., Syria, Sudan).**
+
+We use key indicators such as healthcare coverage, GDP per capita, life expectancy, and military expenditure to understand global disparities.
+
+---
+
+# Load and Prepare Data
+
+```{python}
+import pandas as pd
+import geopandas as gpd
+from plotnine import *
+
+# Load merged dataset
+merged_df = pd.read_csv("merged_unicef_data.csv")
+
+# Rename columns for clarity
+merged_df.rename(columns={
+    'GDP per capita (constant 2015 US$)': 'GDP_per_capita',
+    'Life expectancy at birth, total (years)': 'Life_Expectancy'
+}, inplace=True)
+
+```
+
+---
+
+# World Map: Rotatable Globe
+
+```{python}
+import plotly.express as px
+
+# Use latest year
+latest_year = merged_df['time_period'].max()
+latest_health = merged_df[merged_df['time_period'] == latest_year].copy()
+
+# ISO-3 code column in merged file is 'alpha_3_code_x'
+latest_health['iso_alpha'] = latest_health['alpha_3_code_x']
+
+# Build interactive globe
+fig = px.choropleth(
+    latest_health,
+    locations='iso_alpha',
+    color='obs_value',
+    hover_name='country',
+    color_continuous_scale='Viridis',
+    projection='orthographic',
+    title=f"Global Healthcare Coverage ({latest_year})"
+)
+fig.update_geos(
+    showcountries=True, countrycolor='white',
+    showland=True, landcolor='lightgray',
+    showocean=True, oceancolor='lightblue'
+)
+fig.update_layout(margin={'l':0,'r':0,'t':50,'b':0}, height=600)
+
+fig
+
+```
+
+**Insight:**
+The interactive globe highlights stark regional disparities in healthcare coverage. Wealthier regions such as Europe and East Asia exhibit near-universal healthcare access, whereas Sub-Saharan Africa and conflict-affected nations display critical coverage gaps, underscoring persistent global inequities.
+
+---
+
+# Bar Chart: Bottom 30 Healthcare Countries
+
+```{python}
+# Bottom 30
+bottom30 = latest_health.nsmallest(30, 'obs_value')
+(
+    ggplot(bottom30, aes(x='reorder(country, obs_value)', y='obs_value')) +
+      geom_bar(stat='identity', fill='seagreen') +
+      coord_flip() +
+      theme_minimal() +
+      labs(
+        title="Bottom 30 Countries by Healthcare Coverage",
+        x="Country",
+        y="Coverage (%)"
+      )
+)
+
+```
+
+**Insight:**
+Fragile and conflict-affected states dominate the bottom 30 list, including Yemen, South Sudan, and Syria. These countries face compounded challenges of political instability, economic fragility, and systemic underinvestment in public health infrastructure.
+
+---
+
+# Scatter Plot: GDP vs Life Expectancy
+
+```{python}
+# Drop missing
+scatter_df = merged_df.dropna(subset=['GDP_per_capita', 'Life_Expectancy'])
+(
+    ggplot(scatter_df, aes(x='GDP_per_capita', y='Life_Expectancy')) +
+      geom_point(color='orange') +
+      geom_smooth(method='lm', color='blue') +
+      theme_light() +
+      labs(
+        title="GDP per Capita vs Life Expectancy",
+        x="GDP per Capita (USD)",
+        y="Life Expectancy (Years)"
+      )
+)
+```
+
+**Insight:**
+A strong positive correlation exists between GDP per capita and life expectancy. However, notable outliers — such as resource-rich but low life expectancy nations — highlight that wealth alone does not guarantee better health outcomes without strategic social investment.
+
+---
+
+# Time Series: Healthcare & GDP (Mongolia as an example)
+
+```{python}
+
+# Prepare Mongolia data
+mongolia_df = merged_df[merged_df['country'] == 'Mongolia'].copy()
+
+# Scale GDP for comparison
+mongolia_df['GDP_scaled'] = mongolia_df['GDP_per_capita'] / 50
+
+# Plot healthcare coverage and scaled GDP
+(
+    ggplot(mongolia_df, aes(x='time_period')) +
+      geom_line(aes(y='obs_value'), color='forestgreen', size=1.2) +
+      geom_line(aes(y='GDP_scaled'), color='steelblue', linetype='dashed', size=1.2) +
+      theme_classic() +
+      labs(
+        title = "Healthcare Coverage and GDP per Capita Over Time: Mongolia",
+        x     = "Year",
+        y     = "Value",
+        caption = "Green = Healthcare Coverage (%) | Blue Dashed = GDP per Capita (scaled by 50)"
+      ) +
+      theme(
+        legend_position='none',
+        plot_title=element_text(size=16, weight='bold'),
+        axis_title_x=element_text(size=13),
+        axis_title_y=element_text(size=13),
+        plot_caption=element_text(size=10, style='italic')
+      )
+)
+
+```
+
+**Insight:**
+Mongolia demonstrates a clear positive association between economic growth and healthcare coverage over time. Despite minor fluctuations during global economic uncertainties, the country consistently improved healthcare access alongside steady GDP per capita gains. This trajectory highlights Mongolia’s effective public policy alignment between economic development and social investment priorities.
+---
+
+# SDG Alignment
+
+Enhanced Conclusion:
+
+This analysis directly aligns with two critical Sustainable Development Goals (SDGs):
+
+## SDG 3 – Good Health and Well-being:
+  The findings highlight the urgent need for equitable healthcare investments to ensure healthy lives for all, particularly in underserved and fragile regions.
+
+## SDG 10 – Reduced Inequalities:
+  Persistent disparities between high-income and low-income nations underscore the importance of global efforts aimed at reducing socioeconomic and health inequalities across countries.
+
+
+---
+
+# References
+
+- UNICEF Data Portal
+- World Bank Open Data
+- Global Health Observatory
